@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AP Gov Essay Grader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy:   #0d1b2a;
+      --navy2:  #152336;
+      --gold:   #c9a84c;
+      --gold2:  #e8c97a;
+      --cream:  #f5f0e8;
+      --red:    #b84040;
+      --green:  #3a7d5c;
+      --muted:  #7a8a9a;
+      --border: rgba(201,168,76,0.25);
+      --radius: 6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--navy);
+      color: var(--cream);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--navy2);
+    }
+    .logo-seal {
+      width: 44px; height: 44px;
+      border: 2px solid var(--gold);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.35rem;
+      color: var(--gold2);
+      letter-spacing: .03em;
+    }
+    header span {
+      font-size: .75rem;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .header-text { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .api-key-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .api-key-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .api-key-input {
+      width: 200px;
+      background: var(--navy);
+      border: 1px solid var(--border);
+      color: var(--cream);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .8rem;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      outline: none;
+    }
+    .api-key-input::placeholder { color: var(--muted); }
+    .api-key-input:focus { border-color: var(--gold); }
+    .api-key-btn {
+      background: rgba(201,168,76,.2);
+      color: var(--gold2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .75rem;
+      cursor: pointer;
+    }
+    .api-key-btn:hover { background: rgba(201,168,76,.35); }
+    .api-key-status {
+      font-size: .7rem;
+      color: var(--green);
+    }
+    .api-key-status.saved { color: var(--green); }
+    .api-key-status.error { color: var(--red); }
+
+    /* ── LAYOUT ── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 0;
+      flex: 1;
+      height: calc(100vh - 81px);
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .prompt-bar {
+      background: var(--navy2);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .prompt-bar label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .7rem;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      white-space: nowrap;
+    }
+    .prompt-bar select {
+      background: var(--navy);
+      border: 1px solid var(--border);
+      color: var(--cream);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .85rem;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .prompt-bar select:focus { border-color: var(--gold); }
+
+    .prompt-box {
+      background: rgba(255,255,255,.03);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+    }
+    .prompt-box p {
+      font-size: .85rem;
+      color: var(--cream);
+      line-height: 1.65;
+      font-style: italic;
+      opacity: .85;
+    }
+    .prompt-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .65rem;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+    }
+
+    .essay-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .essay-area textarea {
+      flex: 1;
+      min-height: 320px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--cream);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .9rem;
+      line-height: 1.8;
+      padding: 18px 20px;
+      resize: none;
+      outline: none;
+      transition: border-color .2s, background .2s;
+    }
+    .essay-area textarea::placeholder { color: var(--muted); opacity: .6; }
+    .essay-area textarea:focus {
+      border-color: var(--gold);
+      background: rgba(255,255,255,.065);
+    }
+
+    .word-count-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .word-count {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .7rem;
+      color: var(--muted);
+    }
+    .word-count span { color: var(--gold2); }
+
+    .submit-btn {
+      background: var(--gold);
+      color: var(--navy);
+      border: none;
+      border-radius: var(--radius);
+      padding: 12px 28px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-weight: 600;
+      font-size: .9rem;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .submit-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .submit-btn .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(13,27,42,.3);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      display: none;
+      animation: spin .7s linear infinite;
+    }
+    .submit-btn.loading .spinner { display: block; }
+    .submit-btn.loading .btn-text { opacity: .6; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: var(--navy2);
+    }
+
+    .panel-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0;
+      background: var(--navy2);
+      z-index: 2;
+    }
+    .panel-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      color: var(--gold2);
+    }
+    .score-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--gold);
+      background: rgba(201,168,76,.12);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      display: none;
+    }
+    .score-badge.visible { display: block; }
+
+    .rubric-section { padding: 20px 24px; }
+
+    /* ── RUBRIC CRITERIA ── */
+    .criterion {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: border-color .3s;
+    }
+    .criterion.graded { border-color: var(--border); }
+    .criterion.pass { border-left: 3px solid var(--green); }
+    .criterion.fail { border-left: 3px solid var(--red); }
+    .criterion.partial { border-left: 3px solid var(--gold); }
+
+    .criterion-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .criterion-header:hover { background: rgba(255,255,255,.03); }
+    .crit-title {
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--cream);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .crit-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .6rem;
+      color: var(--muted);
+      background: rgba(255,255,255,.07);
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .crit-pts {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .8rem;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+    .crit-pts .earned { font-size: 1rem; font-weight: 600; }
+
+    .criterion-body {
+      padding: 0 16px 14px;
+      display: none;
+    }
+    .criterion-body.open { display: block; }
+    .criterion-desc {
+      font-size: .78rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .ai-feedback {
+      background: rgba(201,168,76,.08);
+      border: 1px solid rgba(201,168,76,.2);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: .8rem;
+      color: var(--cream);
+      line-height: 1.6;
+      opacity: .9;
+    }
+    .ai-feedback.placeholder {
+      color: var(--muted);
+      font-style: italic;
+      border-style: dashed;
+      background: transparent;
+    }
+
+    /* ── OVERALL FEEDBACK ── */
+    .overall-feedback {
+      margin: 0 24px 24px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: none;
+    }
+    .overall-feedback.visible { display: block; }
+    .overall-feedback h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: .95rem;
+      color: var(--gold2);
+      margin-bottom: 10px;
+    }
+    .overall-feedback p {
+      font-size: .82rem;
+      color: var(--cream);
+      line-height: 1.7;
+      opacity: .85;
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+      gap: 10px;
+    }
+    .empty-state .icon { font-size: 2.5rem; opacity: .3; }
+    .empty-state p {
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 280px;
+    }
+    .empty-state a { color: var(--gold2); text-decoration: none; }
+    .empty-state a:hover { text-decoration: underline; }
+
+    /* ── SCORE DONUT ── */
+    .score-visual {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: none;
+    }
+    .score-visual.visible { display: flex; }
+    .donut-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+    .donut-wrap svg { transform: rotate(-90deg); }
+    .donut-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .donut-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .donut-denom {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .6rem;
+      color: var(--muted);
+    }
+    .score-meta { flex: 1; }
+    .score-meta .grade {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: var(--gold2);
+      line-height: 1;
+    }
+    .score-meta .ap-score {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .7rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; height: auto; }
+      .left-panel { min-height: 60vh; }
+      .right-panel { min-height: 50vh; border-top: 1px solid var(--border); }
+      header { padding: 14px 20px; flex-wrap: wrap; }
+      .api-key-wrap { order: 3; width: 100%; margin-top: 8px; }
+      .api-key-input { flex: 1; min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-seal">🏛️</div>
+  <div class="header-text">
+    <h1>AP Gov Essay Grader</h1>
+    <span>Powered by Ollama Cloud · College Board Aligned Rubric</span>
+  </div>
+  <div class="api-key-wrap">
+    <label for="apiKeyInput" class="api-key-label">API Key</label>
+    <input type="password" id="apiKeyInput" class="api-key-input" placeholder="Ollama Cloud key (ollama.com/settings/keys)" autocomplete="off" />
+    <button type="button" class="api-key-btn" id="saveKeyBtn" onclick="saveApiKey()">Save</button>
+    <span class="api-key-status" id="apiKeyStatus"></span>
+  </div>
+</header>
+
+<main>
+  <!-- ══ LEFT: WRITING PANEL ══ -->
+  <div class="left-panel">
+    <div class="prompt-bar">
+      <label>Essay Type</label>
+      <select id="essayType" onchange="loadPrompt()">
+        <option value="frq">FRQ — Free Response</option>
+        <option value="arg">Argumentative Essay</option>
+        <option value="dbq">DBQ — Document Based</option>
+      </select>
+      <label style="margin-left:12px">Prompt</label>
+      <select id="promptSelect" onchange="loadPrompt()">
+        <option value="0">Federalism & State Power</option>
+        <option value="1">Civil Liberties vs. National Security</option>
+        <option value="2">Congressional Gridlock</option>
+      </select>
+      <label style="margin-left:12px">Ollama Model</label>
+      <select id="ollamaModel">
+        <option value="gpt-oss:20b-cloud">gpt-oss:20b-cloud</option>
+        <option value="gpt-oss:120b-cloud">gpt-oss:120b-cloud</option>
+        <option value="gpt-oss:120b">gpt-oss:120b</option>
+        <option value="gpt-oss:20b">gpt-oss:20b</option>
+      </select>
+    </div>
+
+    <div class="prompt-box">
+      <div class="prompt-label">Essay Prompt</div>
+      <p id="promptText">Loading prompt...</p>
+    </div>
+
+    <div class="essay-area">
+      <textarea id="essayInput"
+        placeholder="Begin writing your response here. Address all parts of the prompt. A strong essay includes a clear thesis, relevant evidence, and well-reasoned argumentation..."
+        oninput="updateWordCount()"
+      ></textarea>
+      <div class="word-count-row">
+        <div class="word-count">Word count: <span id="wordCount">0</span></div>
+        <button class="submit-btn" id="gradeBtn" onclick="gradeEssay()">
+          <div class="spinner"></div>
+          <span class="btn-text">Grade Essay →</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT: GRADING PANEL ══ -->
+  <div class="right-panel" id="rightPanel">
+    <div class="panel-header">
+      <h2>Rubric & Feedback</h2>
+      <div class="score-badge" id="scoreBadge"></div>
+    </div>
+
+    <!-- Score visual (hidden until graded) -->
+    <div class="score-visual" id="scoreVisual">
+      <div class="donut-wrap">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+          <circle id="donutArc" cx="36" cy="36" r="28" fill="none"
+            stroke="var(--gold)" stroke-width="8"
+            stroke-dasharray="0 176" stroke-linecap="round"
+            style="transition: stroke-dasharray .8s ease"/>
+        </svg>
+        <div class="donut-center">
+          <div class="donut-num" id="donutNum">0</div>
+          <div class="donut-denom" id="donutDenom">/6</div>
+        </div>
+      </div>
+      <div class="score-meta">
+        <div class="grade" id="scoreGrade">—</div>
+        <div class="ap-score" id="apScore">AP Score Projection: —</div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="icon">📋</div>
+      <p>Write your essay response and click <strong>Grade Essay</strong> to receive rubric feedback from Ollama Cloud. Enter your API key above (get one at <a href="https://ollama.com/settings/keys" target="_blank" rel="noopener">ollama.com/settings/keys</a>).</p>
+    </div>
+
+    <!-- Rubric criteria -->
+    <div class="rubric-section" id="rubricSection" style="display:none">
+
+      <div class="criterion" id="crit-thesis" onclick="toggleCrit('thesis')">
+        <div class="criterion-header">
+          <div class="crit-title">
+            Thesis / Claim
+            <span class="crit-tag">Required</span>
+          </div>
+          <div class="crit-pts"><span class="earned" id="pts-thesis">—</span>/1 pt</div>
+        </div>
+        <div class="criterion-body" id="body-thesis">
+          <div class="criterion-desc">Responds to the prompt with a defensible thesis or claim that establishes a line of reasoning. The thesis must be more than a restatement of the prompt.</div>
+          <div class="ai-feedback placeholder" id="fb-thesis">AI feedback will appear here after grading.</div>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-context" onclick="toggleCrit('context')">
+        <div class="criterion-header">
+          <div class="crit-title">
+            Contextualization
+            <span class="crit-tag">1 pt</span>
+          </div>
+          <div class="crit-pts"><span class="earned" id="pts-context">—</span>/1 pt</div>
+        </div>
+        <div class="criterion-body" id="body-context">
+          <div class="criterion-desc">Describes a broader historical or political context accurately and connects it to the argument. Must go beyond the immediate topic.</div>
+          <div class="ai-feedback placeholder" id="fb-context">AI feedback will appear here after grading.</div>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-evidence" onclick="toggleCrit('evidence')">
+        <div class="criterion-header">
+          <div class="crit-title">
+            Evidence
+            <span class="crit-tag">2 pts</span>
+          </div>
+          <div class="crit-pts"><span class="earned" id="pts-evidence">—</span>/2 pts</div>
+        </div>
+        <div class="criterion-body" id="body-evidence">
+          <div class="criterion-desc">Uses at least two specific, relevant pieces of evidence from course content. Second point awarded when evidence is used to support a line of reasoning.</div>
+          <div class="ai-feedback placeholder" id="fb-evidence">AI feedback will appear here after grading.</div>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-analysis" onclick="toggleCrit('analysis')">
+        <div class="criterion-header">
+          <div class="crit-title">
+            Analysis & Reasoning
+            <span class="crit-tag">2 pts</span>
+          </div>
+          <div class="crit-pts"><span class="earned" id="pts-analysis">—</span>/2 pts</div>
+        </div>
+        <div class="criterion-body" id="body-analysis">
+          <div class="criterion-desc">Uses historical reasoning (comparison, causation, or continuity/change) to frame the argument. Complexity point awarded for demonstrating sophisticated understanding across periods, scales, or themes.</div>
+          <div class="ai-feedback placeholder" id="fb-analysis">AI feedback will appear here after grading.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Overall AI Feedback -->
+    <div class="overall-feedback" id="overallFeedback">
+      <h3>Overall Feedback</h3>
+      <p id="overallText"></p>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  // ── PROMPTS DATA ──
+  const prompts = {
+    frq: [
+      "Explain how the federal system divides power between the national and state governments. In your response, describe ONE constitutional provision that supports federalism and explain how the relationship between federal and state authority has changed over time.",
+      "Explain how the tension between civil liberties and national security has shaped government policy. Describe ONE Supreme Court case and evaluate how well the government has balanced these competing interests.",
+      "Explain why congressional gridlock occurs and describe TWO structural features of Congress that contribute to legislative inaction."
+    ],
+    arg: [
+      "Develop an argument that evaluates whether federalism today protects or undermines individual rights. Use at least ONE piece of specific evidence from your knowledge of U.S. Government and Politics.",
+      "Develop an argument that evaluates the extent to which the Supreme Court has effectively protected civil liberties against government overreach. Use specific evidence to support your claim.",
+      "Develop an argument that evaluates whether Congress adequately represents the American public in the modern era."
+    ],
+    dbq: [
+      "Using the documents provided and your knowledge of U.S. Government, explain how federal-state relations have evolved since the New Deal era and evaluate the significance of this change for individual rights.",
+      "Using the documents provided and your knowledge of course content, assess the degree to which civil liberties have been restricted during periods of national crisis.",
+      "Using the documents provided, evaluate the extent to which partisan polarization has contributed to congressional dysfunction."
+    ]
+  };
+
+  // ── RUBRIC TOTALS ──
+  const rubricMax = { thesis: 1, context: 1, evidence: 2, analysis: 2 };
+  const totalMax = 6;
+
+  function loadPrompt() {
+    const type = document.getElementById('essayType').value;
+    const idx  = parseInt(document.getElementById('promptSelect').value);
+    document.getElementById('promptText').textContent = prompts[type][idx];
+    resetGrading();
+  }
+
+  function updateWordCount() {
+    const text  = document.getElementById('essayInput').value.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    document.getElementById('wordCount').textContent = words;
+  }
+
+  function toggleCrit(id) {
+    const body = document.getElementById('body-' + id);
+    body.classList.toggle('open');
+  }
+
+  function resetGrading() {
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('rubricSection').style.display = 'none';
+    document.getElementById('overallFeedback').classList.remove('visible');
+    document.getElementById('scoreVisual').classList.remove('visible');
+    document.getElementById('scoreBadge').classList.remove('visible');
+    ['thesis','context','evidence','analysis'].forEach(id => {
+      document.getElementById('crit-' + id).className = 'criterion';
+      document.getElementById('pts-' + id).textContent = '—';
+      document.getElementById('fb-' + id).textContent = 'AI feedback will appear here after grading.';
+      document.getElementById('fb-' + id).className = 'ai-feedback placeholder';
+      document.getElementById('body-' + id).classList.remove('open');
+    });
+  }
+
+  // ── GRADE ESSAY (Ollama Cloud) ──
+  // Result shape: { thesis, context, evidence, analysis } each { score, feedback }, plus overall: string
+
+  // Use same-origin proxy to avoid CORS. Run server.js and open the app from it (e.g. http://localhost:3000/).
+  const CHAT_API_URL = '/api/chat';
+  const API_KEY_STORAGE = 'ollama_apigov_apikey';
+
+  function getApiKey() {
+    return localStorage.getItem(API_KEY_STORAGE) || '';
+  }
+
+  function saveApiKey() {
+    const input = document.getElementById('apiKeyInput');
+    const status = document.getElementById('apiKeyStatus');
+    const key = (input && input.value) ? input.value.trim() : '';
+    if (key) {
+      localStorage.setItem(API_KEY_STORAGE, key);
+      if (status) { status.textContent = 'Saved'; status.className = 'api-key-status saved'; }
+      input.value = '';
+      input.type = 'password';
+    } else {
+      localStorage.removeItem(API_KEY_STORAGE);
+      if (status) { status.textContent = 'Cleared'; status.className = 'api-key-status'; }
+    }
+  }
+
+  function setApiKeyStatus(msg, isError) {
+    const status = document.getElementById('apiKeyStatus');
+    if (status) { status.textContent = msg; status.className = 'api-key-status' + (isError ? ' error' : ' saved'); }
+  }
+
+  const gradingSystemPrompt = `You are an AP U.S. Government and Politics expert grader. Grade the student essay using the College Board 6-point rubric. Return ONLY valid JSON, no other text or markdown. Use this exact schema:
+{
+  "thesis":   { "score": 0 or 1,   "feedback": "brief feedback" },
+  "context":  { "score": 0 or 1,   "feedback": "brief feedback" },
+  "evidence": { "score": 0, 1, or 2, "feedback": "brief feedback" },
+  "analysis": { "score": 0, 1, or 2, "feedback": "brief feedback" },
+  "overall":  "2-4 sentence overall feedback"
+}
+Rules: thesis and context are 0-1; evidence and analysis are 0-2. Total out of 6. Be fair and specific. Output nothing but the JSON object.`;
+
+  function extractJsonFromResponse(text) {
+    const trimmed = text.trim();
+    // Try raw parse first
+    try { return JSON.parse(trimmed); } catch (_) {}
+    // Strip markdown code block if present
+    const codeMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const raw = codeMatch ? codeMatch[1].trim() : trimmed;
+    return JSON.parse(raw);
+  }
+
+  async function gradeEssay() {
+    const essay = document.getElementById('essayInput').value.trim();
+    const promptText = document.getElementById('promptText').textContent;
+    const model = document.getElementById('ollamaModel').value;
+    const apiKey = getApiKey();
+
+    if (essay.length < 50) {
+      alert('Please write a more complete essay before grading.');
+      return;
+    }
+    if (!apiKey) {
+      alert('Please enter and save your Ollama Cloud API key in the header (get one at ollama.com/settings/keys).');
+      document.getElementById('apiKeyInput').focus();
+      return;
+    }
+
+    const btn = document.getElementById('gradeBtn');
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.querySelector('.btn-text').textContent = 'Grading…';
+
+    try {
+      const userContent = "Essay prompt:\n" + promptText + "\n\nStudent essay:\n" + essay;
+
+      const response = await fetch(CHAT_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: apiKey,
+          model: model,
+          stream: false,
+          messages: [
+            { role: 'system', content: gradingSystemPrompt },
+            { role: 'user', content: userContent }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 401) throw new Error('Invalid API key. Check your key at ollama.com/settings/keys and save it again.');
+        if (response.status === 404) throw new Error('Model "' + model + '" not available on Ollama Cloud. Try another model.');
+        if (response.status === 429) throw new Error('Rate limited. Please try again in a moment.');
+        throw new Error('Ollama Cloud error: ' + (errText || response.status));
+      }
+
+      const data = await response.json();
+      const rawContent = data.message && data.message.content ? data.message.content : '';
+      const result = extractJsonFromResponse(rawContent);
+
+      // Normalize and validate
+      const keys = ['thesis', 'context', 'evidence', 'analysis'];
+      for (const key of keys) {
+        if (!result[key] || typeof result[key].score === 'undefined') result[key] = { score: 0, feedback: 'No feedback returned.' };
+        result[key].score = Math.max(0, Math.min(rubricMax[key], Math.round(Number(result[key].score))));
+      }
+      if (typeof result.overall !== 'string') result.overall = 'Overall feedback not available.';
+
+      renderGrades(result);
+
+    } catch (err) {
+      console.error(err);
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror'))
+        alert('Request failed (often due to CORS). Run the proxy from this folder: "python server.py" or "node server.js", then open http://localhost:3000 in your browser. Do not open the HTML file directly.');
+      else
+        alert(msg || 'Grading failed. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.querySelector('.btn-text').textContent = 'Grade Essay →';
+    }
+  }
+
+  function renderGrades(result) {
+    const keys = ['thesis','context','evidence','analysis'];
+    let total = 0;
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('rubricSection').style.display = 'block';
+
+    keys.forEach(key => {
+      const score = result[key].score;
+      const max   = rubricMax[key];
+      total += score;
+
+      const el = document.getElementById('crit-' + key);
+      el.className = 'criterion graded ' + (score >= max ? 'pass' : score > 0 ? 'partial' : 'fail');
+
+      document.getElementById('pts-' + key).textContent = score;
+
+      const fb = document.getElementById('fb-' + key);
+      fb.textContent = result[key].feedback;
+      fb.className = 'ai-feedback';
+
+      // Open criterion body
+      document.getElementById('body-' + key).classList.add('open');
+    });
+
+    // Score visual
+    const pct = total / totalMax;
+    const circumference = 2 * Math.PI * 28;
+    document.getElementById('donutArc').setAttribute('stroke-dasharray',
+      (pct * circumference).toFixed(1) + ' ' + circumference.toFixed(1));
+    document.getElementById('donutNum').textContent = total;
+    document.getElementById('donutDenom').textContent = '/' + totalMax;
+
+    const grade = total >= 5 ? 'Excellent' : total >= 4 ? 'Proficient' : total >= 2 ? 'Developing' : 'Needs Work';
+    const apProj = total >= 5 ? '4–5' : total >= 3 ? '3–4' : '2–3';
+    document.getElementById('scoreGrade').textContent = grade;
+    document.getElementById('apScore').textContent = 'AP Score Projection: ' + apProj;
+    document.getElementById('scoreVisual').classList.add('visible');
+
+    document.getElementById('scoreBadge').textContent = total + '/' + totalMax;
+    document.getElementById('scoreBadge').classList.add('visible');
+
+    // Overall
+    document.getElementById('overallText').textContent = result.overall;
+    document.getElementById('overallFeedback').classList.add('visible');
+  }
+
+  // Init
+  loadPrompt();
+  (function initApiKey() {
+    const key = getApiKey();
+    const status = document.getElementById('apiKeyStatus');
+    if (status) status.textContent = key ? 'Using saved key' : '';
+  })();
+</script>
+</body>
+</html>

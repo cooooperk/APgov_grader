@@ -1,0 +1,9 @@
+{
+  "name": "ap-gov-grader",
+  "version": "1.0.0",
+  "description": "AP Gov Essay Grader proxy for Ollama Cloud",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
