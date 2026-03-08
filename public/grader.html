@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Essay Grader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --navy: #0d1b2a; --navy2: #152336; --gold: #c9a84c; --gold2: #e8c97a; --cream: #f5f0e8; --red: #b84040; --green: #3a7d5c; --muted: #7a8a9a; --border: rgba(201,168,76,0.25); --radius: 6px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--navy); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    header { border-bottom: 1px solid var(--border); padding: 14px 24px; background: var(--navy2); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    header a { color: var(--gold2); text-decoration: none; font-size: .9rem; }
+    header a:hover { text-decoration: underline; }
+    .api-key-wrap { display: flex; align-items: center; gap: 8px; }
+    .api-key-wrap input { width: 180px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--navy); color: var(--cream); font-size: .8rem; }
+    .api-key-wrap button { padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: rgba(201,168,76,.2); color: var(--gold2); cursor: pointer; font-size: .75rem; }
+    main { display: grid; grid-template-columns: 1fr 400px; flex: 1; height: calc(100vh - 60px); }
+    .left-panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+    .prompt-box { padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.03); }
+    .prompt-box .label { font-size: .65rem; color: var(--gold); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+    .prompt-box p { font-size: .9rem; line-height: 1.65; color: var(--cream); font-style: italic; }
+    .essay-area { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    .essay-area textarea { flex: 1; min-height: 200px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: var(--radius); color: var(--cream); padding: 16px; font-size: .9rem; line-height: 1.7; resize: none; outline: none; }
+    .essay-area textarea:focus { border-color: var(--gold); }
+    .word-count-row { display: flex; justify-content: space-between; align-items: center; }
+    .word-count { font-size: .75rem; color: var(--muted); }
+    .submit-btn { padding: 12px 24px; background: var(--gold); color: var(--navy); border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+    .submit-btn:hover { background: var(--gold2); }
+    .submit-btn:disabled { opacity: .6; cursor: not-allowed; }
+    .right-panel { display: flex; flex-direction: column; overflow-y: auto; background: var(--navy2); }
+    .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .panel-header h2 { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--gold2); }
+    .score-badge { font-family: 'IBM Plex Mono', monospace; font-size: 1rem; color: var(--gold); background: rgba(201,168,76,.12); padding: 4px 12px; border-radius: 20px; display: none; }
+    .score-badge.visible { display: block; }
+    .score-visual { display: none; padding: 20px; border-bottom: 1px solid var(--border); align-items: center; gap: 16px; }
+    .score-visual.visible { display: flex; }
+    .donut-wrap { width: 56px; height: 56px; position: relative; }
+    .donut-wrap svg { transform: rotate(-90deg); }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-num { font-family: 'IBM Plex Mono', serif; font-size: 1rem; font-weight: 600; color: var(--gold); }
+    .donut-denom { font-size: .6rem; color: var(--muted); }
+    .rubric-section { padding: 16px 20px; }
+    .criterion { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+    .criterion.pass { border-left: 3px solid var(--green); }
+    .criterion.fail { border-left: 3px solid var(--red); }
+    .criterion.partial { border-left: 3px solid var(--gold); }
+    .criterion-header { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .criterion-header:hover { background: rgba(255,255,255,.03); }
+    .crit-title { font-size: .8rem; font-weight: 600; color: var(--cream); }
+    .crit-pts { font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--gold); }
+    .criterion-body { padding: 0 14px 12px; display: none; }
+    .criterion-body.open { display: block; }
+    .criterion-desc { font-size: .75rem; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+    .ai-feedback { font-size: .78rem; color: var(--cream); line-height: 1.5; padding: 10px; background: rgba(201,168,76,.08); border-radius: 4px; border: 1px solid rgba(201,168,76,.2); }
+    .ai-feedback.placeholder { color: var(--muted); font-style: italic; border-style: dashed; background: transparent; }
+    .overall-feedback { margin: 16px 20px; padding: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: var(--radius); display: none; }
+    .overall-feedback.visible { display: block; }
+    .overall-feedback h3 { font-size: .9rem; color: var(--gold2); margin-bottom: 8px; }
+    .overall-feedback p { font-size: .8rem; line-height: 1.6; color: var(--cream); }
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; color: var(--muted); font-size: .85rem; }
+    .loading-msg { padding: 40px; text-align: center; color: var(--muted); }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(13,27,42,.3); border-top-color: var(--navy); border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    .submit-btn.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">← Back to dashboard</a>
+    <div class="api-key-wrap">
+      <input type="password" id="apiKeyInput" placeholder="Ollama API key" autocomplete="off" />
+      <button type="button" id="saveKeyBtn">Save key</button>
+    </div>
+  </header>
+  <main>
+    <div class="left-panel">
+      <div class="prompt-box">
+        <div class="label">Essay prompt</div>
+        <p id="promptText">Loading…</p>
+      </div>
+      <div class="essay-area">
+        <textarea id="essayInput" placeholder="Write your response here…" oninput="updateWordCount()"></textarea>
+        <div class="word-count-row">
+          <span class="word-count">Words: <span id="wordCount">0</span></span>
+          <button type="button" class="submit-btn" id="gradeBtn" onclick="gradeEssay()"><span class="spinner"></span><span class="btn-text">Grade essay</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="panel-header"><h2>Rubric & feedback</h2><div class="score-badge" id="scoreBadge"></div></div>
+      <div class="score-visual" id="scoreVisual">
+        <div class="donut-wrap">
+          <svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/><circle id="donutArc" cx="28" cy="28" r="22" fill="none" stroke="var(--gold)" stroke-width="6" stroke-dasharray="0 138" stroke-linecap="round"/></svg>
+          <div class="donut-center"><span class="donut-num" id="donutNum">0</span><span class="donut-denom" id="donutDenom">/6</span></div>
+        </div>
+        <div><div id="scoreGrade" style="font-size:1.2rem;color:var(--gold2);">—</div><div id="apScore" style="font-size:.7rem;color:var(--muted);">—</div></div>
+      </div>
+      <div class="empty-state" id="emptyState">Submit your essay to see rubric feedback.</div>
+      <div class="rubric-section" id="rubricSection" style="display:none"></div>
+      <div class="overall-feedback" id="overallFeedback"><h3>Overall</h3><p id="overallText"></p></div>
+    </div>
+  </main>
+  <script>
+    const API_KEY_STORAGE = 'ollama_apigov_apikey';
+    function getApiKey() { return localStorage.getItem(API_KEY_STORAGE) || ''; }
+    function saveApiKey() {
+      const v = document.getElementById('apiKeyInput').value.trim();
+      if (v) { localStorage.setItem(API_KEY_STORAGE, v); document.getElementById('apiKeyInput').value = ''; }
+    }
+    document.getElementById('saveKeyBtn').onclick = saveApiKey;
+
+    const params = new URLSearchParams(location.search);
+    const promptId = params.get('promptId');
+    if (!promptId) { location.href = '/'; }
+
+    let promptData = null;
+    let rubricMax = { thesis: 1, context: 1, evidence: 2, analysis: 2 };
+    const totalMax = 6;
+
+    async function loadPrompt() {
+      try {
+        const r = await fetch('/api/prompts/' + promptId, { credentials: 'include' });
+        if (!r.ok) { document.getElementById('promptText').textContent = 'Prompt not found.'; return; }
+        promptData = await r.json();
+        document.getElementById('promptText').textContent = promptData.body || 'No prompt text.';
+        if (promptData.rubric && promptData.rubric.criteria) {
+          rubricMax = {};
+          promptData.rubric.criteria.forEach(c => { rubricMax[c.id] = c.maxPoints || 0; });
+        }
+      } catch (_) {
+        document.getElementById('promptText').textContent = 'Could not load prompt.';
+      }
+    }
+
+    function updateWordCount() {
+      const t = document.getElementById('essayInput').value.trim();
+      document.getElementById('wordCount').textContent = t ? t.split(/\s+/).length : 0;
+    }
+
+    function buildRubricHtml() {
+      const criteria = (promptData && promptData.rubric && promptData.rubric.criteria) ? promptData.rubric.criteria : [
+        { id: 'thesis', name: 'Thesis / Claim', maxPoints: 1, description: 'Defensible thesis and line of reasoning.' },
+        { id: 'context', name: 'Contextualization', maxPoints: 1, description: 'Broader context connected to argument.' },
+        { id: 'evidence', name: 'Evidence', maxPoints: 2, description: 'Specific evidence; second point for reasoning.' },
+        { id: 'analysis', name: 'Analysis & Reasoning', maxPoints: 2, description: 'Historical reasoning; complexity.' }
+      ];
+      const section = document.getElementById('rubricSection');
+      section.innerHTML = criteria.map(c => `
+        <div class="criterion" id="crit-${c.id}" data-max="${c.maxPoints}">
+          <div class="criterion-header" onclick="document.getElementById('body-${c.id}').classList.toggle('open')">
+            <span class="crit-title">${escapeHtml(c.name)}</span>
+            <span class="crit-pts"><span class="earned" id="pts-${c.id}">—</span>/${c.maxPoints} pt${c.maxPoints > 1 ? 's' : ''}</span>
+          </div>
+          <div class="criterion-body" id="body-${c.id}">
+            <div class="criterion-desc">${escapeHtml(c.description)}</div>
+            <div class="ai-feedback placeholder" id="fb-${c.id}">Feedback after grading.</div>
+          </div>
+        </div>
+      `).join('');
+      section.style.display = 'block';
+    }
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    function buildSystemPrompt() {
+      const criteria = (promptData && promptData.rubric && promptData.rubric.criteria) ? promptData.rubric.criteria : [
+        { id: 'thesis', name: 'Thesis', maxPoints: 1 }, { id: 'context', name: 'Context', maxPoints: 1 },
+        { id: 'evidence', name: 'Evidence', maxPoints: 2 }, { id: 'analysis', name: 'Analysis', maxPoints: 2 }
+      ];
+      const schema = criteria.map(c => `"${c.id}": { "score": 0-${c.maxPoints}, "feedback": "brief feedback" }`).join(', ');
+      return `You are an AP U.S. Government and Politics expert grader. Grade the student essay using the given rubric. Return ONLY valid JSON, no other text or markdown. Schema: { ${schema}, "overall": "2-4 sentence overall feedback" }. Be fair and specific. Output nothing but the JSON object.`;
+    }
+
+    function extractJsonFromResponse(text) {
+      const t = text.trim();
+      try { return JSON.parse(t); } catch (_) {}
+      const m = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+      return JSON.parse(m ? m[1].trim() : t);
+    }
+
+    async function gradeEssay() {
+      const essay = document.getElementById('essayInput').value.trim();
+      if (!promptData) return;
+      if (essay.length < 50) { alert('Write a more complete essay (at least 50 characters).'); return; }
+      const apiKey = getApiKey();
+      if (!apiKey) { alert('Enter and save your Ollama Cloud API key in the header.'); return; }
+
+      const btn = document.getElementById('gradeBtn');
+      btn.disabled = true;
+      btn.classList.add('loading');
+      btn.querySelector('.btn-text').textContent = 'Grading…';
+
+      try {
+        const sysPrompt = buildSystemPrompt();
+        const userContent = 'Essay prompt:\n' + promptData.body + '\n\nStudent essay:\n' + essay;
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey,
+            model: 'gpt-oss:20b-cloud',
+            stream: false,
+            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userContent }]
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || res.statusText);
+        }
+        const data = await res.json();
+        const raw = (data.message && data.message.content) || '';
+        const result = extractJsonFromResponse(raw);
+        const keys = Object.keys(rubricMax);
+        keys.forEach(k => {
+          if (!result[k] || typeof result[k].score === 'undefined') result[k] = { score: 0, feedback: 'No feedback.' };
+          result[k].score = Math.max(0, Math.min(rubricMax[k], Math.round(Number(result[k].score))));
+        });
+        if (typeof result.overall !== 'string') result.overall = 'Overall feedback not available.';
+        renderGrades(result);
+      } catch (err) {
+        alert(err.message || 'Grading failed.');
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.querySelector('.btn-text').textContent = 'Grade essay';
+      }
+    }
+
+    function renderGrades(result) {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('scoreVisual').classList.add('visible');
+      document.getElementById('rubricSection').style.display = 'block';
+      const keys = Object.keys(rubricMax);
+      let total = 0;
+      keys.forEach(k => {
+        const score = result[k].score;
+        total += score;
+        const el = document.getElementById('crit-' + k);
+        if (el) {
+          el.classList.remove('pass', 'partial', 'fail');
+          el.classList.add(score >= rubricMax[k] ? 'pass' : score > 0 ? 'partial' : 'fail');
+        }
+        const pts = document.getElementById('pts-' + k);
+        const fb = document.getElementById('fb-' + k);
+        if (pts) pts.textContent = score;
+        if (fb) { fb.textContent = result[k].feedback; fb.classList.remove('placeholder'); }
+        const body = document.getElementById('body-' + k);
+        if (body) body.classList.add('open');
+      });
+      const pct = total / totalMax;
+      const circ = 2 * Math.PI * 22;
+      const arc = document.getElementById('donutArc');
+      if (arc) arc.setAttribute('stroke-dasharray', (pct * circ).toFixed(1) + ' ' + circ.toFixed(1));
+      document.getElementById('donutNum').textContent = total;
+      document.getElementById('donutDenom').textContent = '/' + totalMax;
+      document.getElementById('scoreGrade').textContent = total >= 5 ? 'Excellent' : total >= 4 ? 'Proficient' : total >= 2 ? 'Developing' : 'Needs work';
+      document.getElementById('apScore').textContent = 'AP projection: ' + (total >= 5 ? '4–5' : total >= 3 ? '3–4' : '2–3');
+      document.getElementById('scoreBadge').textContent = total + '/' + totalMax;
+      document.getElementById('scoreBadge').classList.add('visible');
+      document.getElementById('overallText').textContent = result.overall || '';
+      document.getElementById('overallFeedback').classList.add('visible');
+    }
+
+    loadPrompt().then(() => { buildRubricHtml(); });
+    if (getApiKey()) document.getElementById('apiKeyInput').placeholder = 'Key saved';
+  </script>
+</body>
+</html>

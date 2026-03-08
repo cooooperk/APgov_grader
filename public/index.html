@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AP Gov Essay Grader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0d1b2a;
+      --navy2: #152336;
+      --navy3: #1b2d42;
+      --gold: #c9a84c;
+      --gold2: #e8c97a;
+      --cream: #f5f0e8;
+      --red: #b84040;
+      --green: #3a7d5c;
+      --muted: #7a8a9a;
+      --border: rgba(201,168,76,0.25);
+      --radius: 8px;
+      --shadow: 0 4px 24px rgba(0,0,0,.25);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--navy);
+      color: var(--cream);
+      font-family: 'IBM Plex Sans', sans-serif;
+      min-height: 100vh;
+      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201,168,76,.08), transparent);
+    }
+
+    .app { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 48px; height: 48px; border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .logo h1 { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--gold2); letter-spacing: .02em; }
+    .logo span { font-size: .75rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: .1em; }
+    .user-menu { display: flex; align-items: center; gap: 16px; }
+    .user-menu .name { color: var(--gold2); font-size: .9rem; }
+    .user-menu .role-tag { font-family: 'IBM Plex Mono', monospace; font-size: .65rem; color: var(--muted); text-transform: uppercase; background: rgba(255,255,255,.06); padding: 4px 8px; border-radius: 4px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 20px; border-radius: var(--radius); font-family: inherit; font-size: .9rem; font-weight: 500;
+      cursor: pointer; transition: transform .1s, box-shadow .2s; border: none;
+    }
+    .btn-primary { background: var(--gold); color: var(--navy); }
+    .btn-primary:hover { background: var(--gold2); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-secondary { background: rgba(255,255,255,.08); color: var(--gold2); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: rgba(255,255,255,.12); }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .btn-ghost:hover { color: var(--cream); }
+    .btn-danger { background: rgba(184,64,64,.2); color: #e88; border: 1px solid var(--red); }
+    .btn-danger:hover { background: rgba(184,64,64,.35); }
+
+    .card {
+      background: var(--navy2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 28px; margin-bottom: 24px; box-shadow: var(--shadow);
+    }
+    .card h2 { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--gold2); margin-bottom: 20px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: .75rem; color: var(--gold); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--navy); color: var(--cream); font-family: inherit; font-size: .95rem;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,168,76,.2);
+    }
+    .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .form-row .form-group { flex: 1; min-width: 180px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+    .tab { padding: 10px 20px; border-radius: var(--radius); background: transparent; color: var(--muted); border: 1px solid transparent; cursor: pointer; font-family: inherit; font-size: .9rem; }
+    .tab:hover { color: var(--cream); }
+    .tab.active { background: rgba(201,168,76,.15); color: var(--gold2); border-color: var(--border); }
+    .role-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .role-card {
+      padding: 20px; border: 2px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: center; transition: all .2s;
+    }
+    .role-card:hover { border-color: var(--gold); background: rgba(201,168,76,.06); }
+    .role-card.selected { border-color: var(--gold); background: rgba(201,168,76,.12); }
+    .role-card .icon { font-size: 2rem; margin-bottom: 8px; }
+    .role-card .title { font-weight: 600; color: var(--cream); }
+    .role-card .sub { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+    .error-msg { color: var(--red); font-size: .85rem; margin-top: 8px; }
+    .success-msg { color: var(--green); font-size: .85rem; margin-top: 8px; }
+    .prompt-list { display: flex; flex-direction: column; gap: 12px; }
+    .prompt-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 16px 20px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .prompt-item .title { font-weight: 500; color: var(--cream); }
+    .prompt-item .meta { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+    .prompt-item .btn { flex-shrink: 0; }
+    .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .class-card {
+      padding: 24px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .class-card h3 { font-size: 1.1rem; color: var(--gold2); margin-bottom: 8px; }
+    .class-card .code { font-family: 'IBM Plex Mono', monospace; font-size: 1.25rem; letter-spacing: .15em; color: var(--gold); margin: 12px 0; }
+    .class-card .assignments { font-size: .85rem; color: var(--muted); margin-top: 12px; }
+    .class-card .actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .code-badge { display: inline-block; padding: 8px 14px; background: rgba(201,168,76,.15); border: 1px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Mono', monospace; font-size: 1rem; letter-spacing: .1em; margin: 8px 0; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { font-size: .7rem; color: var(--gold); text-transform: uppercase; letter-spacing: .08em; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; opacity: .4; margin-bottom: 16px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header-bar" id="headerBar">
+      <div class="logo">
+        <div class="logo-icon">🏛️</div>
+        <div>
+          <h1>AP Gov Essay Grader</h1>
+          <span>Sign in to continue</span>
+        </div>
+      </div>
+      <div class="user-menu hidden" id="userMenu">
+        <span class="name" id="userName"></span>
+        <span class="role-tag" id="userRole"></span>
+        <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Landing: choose login or register -->
+      <div id="pageLanding" class="page active">
+        <div class="card" style="max-width: 420px; margin: 60px auto;">
+          <h2>Welcome</h2>
+          <p style="color: var(--muted); margin-bottom: 24px;">Sign in or create an account to access the essay grader.</p>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button type="button" class="btn btn-primary" id="goLogin">Sign in</button>
+            <button type="button" class="btn btn-secondary" id="goRegister">Create account</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login -->
+      <div id="pageLogin" class="page">
+        <div class="card" style="max-width: 420px; margin: 0 auto;">
+          <h2>Sign in</h2>
+          <form id="formLogin">
+            <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@example.com" /></div>
+            <div class="form-group"><label>Password</label><input type="password" name="password" required /></div>
+            <div id="loginError" class="error-msg hidden"></div>
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:8px;">Sign in</button>
+          </form>
+          <p style="margin-top:16px;"><button type="button" class="btn btn-ghost" id="backFromLogin">← Back</button></p>
+        </div>
+      </div>
+
+      <!-- Register -->
+      <div id="pageRegister" class="page">
+        <div class="card" style="max-width: 520px; margin: 0 auto;">
+          <h2>Create account</h2>
+          <p style="color: var(--muted); margin-bottom: 16px;">Choose your role:</p>
+          <div class="role-cards" id="roleCards">
+            <div class="role-card" data-role="student"><span class="icon">👤</span><div class="title">Student</div><div class="sub">Join with class code</div></div>
+            <div class="role-card" data-role="teacher"><span class="icon">👩‍🏫</span><div class="title">Teacher</div><div class="sub">Use setup code from admin</div></div>
+            <div class="role-card" data-role="admin"><span class="icon">⚙️</span><div class="title">Admin</div><div class="sub">Use admin setup code</div></div>
+          </div>
+          <form id="formRegister">
+            <div class="form-row">
+              <div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your name" /></div>
+              <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@example.com" /></div>
+            </div>
+            <div class="form-group"><label>Password</label><input type="password" name="password" required minlength="6" /></div>
+            <div class="form-group hidden" id="regClassCodeGroup"><label>Class code</label><input type="text" name="classCode" placeholder="From your teacher" /></div>
+            <div class="form-group hidden" id="regSetupCodeGroup"><label>Setup code</label><input type="text" name="setupCode" placeholder="From your admin" /></div>
+            <div id="registerError" class="error-msg hidden"></div>
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:8px;">Create account</button>
+          </form>
+          <p style="margin-top:16px;"><button type="button" class="btn btn-ghost" id="backFromRegister">← Back</button></p>
+        </div>
+      </div>
+
+      <!-- Student: assigned prompts -->
+      <div id="pageStudent" class="page">
+        <div class="card">
+          <h2>Your assigned prompts</h2>
+          <p style="color: var(--muted); margin-bottom: 20px;">Complete an essay for each prompt below. Click to open the grader.</p>
+          <div id="studentPromptList" class="prompt-list"></div>
+          <div id="studentEmpty" class="empty-state hidden">
+            <div class="icon">📋</div>
+            <p>No prompts assigned yet. Ask your teacher to assign prompts to your class.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teacher: classes and assignments -->
+      <div id="pageTeacher" class="page">
+        <div class="card">
+          <h2>My classes</h2>
+          <p style="color: var(--muted); margin-bottom: 20px;">Create up to 2 classes. Share the class code with students. Assign prompts to each class.</p>
+          <div id="teacherClassGrid" class="class-grid"></div>
+          <div id="teacherCreateClass" style="margin-top: 20px;">
+            <button type="button" class="btn btn-secondary" id="btnCreateClass">+ Create class</button>
+            <div id="createClassForm" class="hidden" style="margin-top: 16px; padding: 20px; background: rgba(255,255,255,.04); border-radius: var(--radius); max-width: 360px;">
+              <div class="form-group"><label>Class name</label><input type="text" id="newClassName" placeholder="e.g. Period 1" /></div>
+              <button type="button" class="btn btn-primary" id="btnConfirmCreate">Create</button>
+              <button type="button" class="btn btn-ghost" id="btnCancelCreate">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin: prompts, rubrics, teacher codes, teachers -->
+      <div id="pageAdmin" class="page">
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="prompts">Prompts & Rubrics</button>
+          <button type="button" class="tab" data-tab="codes">Teacher codes</button>
+          <button type="button" class="tab" data-tab="teachers">Teachers & classes</button>
+        </div>
+        <div id="adminPrompts" class="admin-tab">
+          <div class="card">
+            <h2>Prompts</h2>
+            <p style="color: var(--muted); margin-bottom: 16px;">Add or remove prompts. Students see only prompts assigned by their teacher.</p>
+            <div id="adminAddPrompt" style="margin-bottom: 20px; padding: 16px; background: rgba(255,255,255,.04); border-radius: var(--radius);">
+              <div class="form-row">
+                <div class="form-group" style="flex:2;"><label>Title</label><input type="text" id="newPromptTitle" placeholder="e.g. Federalism & State Power" /></div>
+                <div class="form-group" style="flex:1;"><label>Type</label><select id="newPromptType"><option value="frq">FRQ</option><option value="arg">Argumentative</option><option value="dbq">DBQ</option></select></div>
+              </div>
+              <div class="form-group"><label>Prompt text</label><textarea id="newPromptBody" rows="3" placeholder="Full essay prompt…"></textarea></div>
+              <button type="button" class="btn btn-primary" id="btnAddPrompt">Add prompt</button>
+            </div>
+            <div id="adminPromptList" class="prompt-list"></div>
+          </div>
+        </div>
+        <div id="adminCodes" class="admin-tab hidden">
+          <div class="card">
+            <h2>Teacher setup codes</h2>
+            <p style="color: var(--muted); margin-bottom: 16px;">Generate a code for a new teacher. They use this code when creating an account.</p>
+            <button type="button" class="btn btn-primary" id="btnGenerateCode">Generate new code</button>
+            <div id="newCodeDisplay" class="hidden" style="margin-top: 16px;"><span class="code-badge" id="newCodeValue"></span> <span style="color: var(--muted); font-size: .85rem;">Give this to the teacher.</span></div>
+            <div class="table-wrap" style="margin-top: 24px;">
+              <table><thead><tr><th>Code</th><th>Created</th><th>Used</th></tr></thead><tbody id="codesTableBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div id="adminTeachers" class="admin-tab hidden">
+          <div class="card">
+            <h2>Teachers & classes</h2>
+            <div class="table-wrap"><table><thead><tr><th>Teacher</th><th>Email</th><th>Classes</th><th></th></tr></thead><tbody id="teachersTableBody"></tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API = {
+      get: (path) => fetch(path, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+      post: (path, body) => fetch(path, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => { const j = r.json(); if (!r.ok) return j.then(d => { throw new Error(d.error || r.statusText); }); return j; }),
+      delete: (path) => fetch(path, { method: 'DELETE', credentials: 'include' }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+    };
+
+    let currentUser = null;
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+
+    function show(el, on) { el.classList.toggle('hidden', !on); }
+    function setError(id, msg) { const e = document.getElementById(id); e.textContent = msg || ''; e.classList.toggle('hidden', !msg); }
+    function setHeader(user) {
+      const bar = document.getElementById('headerBar');
+      const menu = document.getElementById('userMenu');
+      const logoSpan = bar.querySelector('.logo span');
+      if (user) {
+        logoSpan.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1) + ' dashboard';
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        menu.classList.remove('hidden');
+      } else {
+        logoSpan.textContent = 'Sign in to continue';
+        menu.classList.add('hidden');
+      }
+    }
+
+    async function loadMe() {
+      try {
+        currentUser = (await API.get('/api/auth/me')).user;
+        setHeader(currentUser);
+        if (currentUser.role === 'student') loadStudentPrompts();
+        if (currentUser.role === 'teacher') loadTeacherClasses();
+        if (currentUser.role === 'admin') { loadAdminPrompts(); loadAdminCodes(); loadAdminTeachers(); }
+        return currentUser;
+      } catch {
+        currentUser = null;
+        setHeader(null);
+        return null;
+      }
+    }
+
+    function redirectByRole() {
+      if (!currentUser) { showPage('pageLanding'); return; }
+      if (currentUser.role === 'student') showPage('pageStudent');
+      else if (currentUser.role === 'teacher') showPage('pageTeacher');
+      else if (currentUser.role === 'admin') showPage('pageAdmin');
+    }
+
+    // ─── Landing / Login / Register ─────────────────────────────────────
+    document.getElementById('goLogin').onclick = () => { showPage('pageLogin'); setError('loginError', ''); };
+    document.getElementById('goRegister').onclick = () => { showPage('pageRegister'); setError('registerError', ''); document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected')); document.getElementById('formRegister').querySelector('[name="role"]') && (document.getElementById('formRegister').dataset.role = ''); };
+    document.getElementById('backFromLogin').onclick = () => showPage('pageLanding');
+    document.getElementById('backFromRegister').onclick = () => showPage('pageLanding');
+
+    document.querySelectorAll('.role-card').forEach(card => {
+      card.onclick = () => {
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        document.getElementById('formRegister').dataset.role = card.dataset.role;
+        const role = card.dataset.role;
+        show(document.getElementById('regClassCodeGroup'), role === 'student');
+        show(document.getElementById('regSetupCodeGroup'), role === 'teacher' || role === 'admin');
+      };
+    });
+
+    document.getElementById('formLogin').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await API.post('/api/auth/login', { email: fd.get('email'), password: fd.get('password') });
+        await loadMe();
+        redirectByRole();
+      } catch (err) {
+        setError('loginError', err.message || 'Login failed');
+      }
+    };
+
+    document.getElementById('formRegister').onsubmit = async (e) => {
+      e.preventDefault();
+      const role = document.getElementById('formRegister').dataset.role;
+      if (!role) { setError('registerError', 'Select Student, Teacher, or Admin'); return; }
+      const fd = new FormData(e.target);
+      const body = { name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), role };
+      if (role === 'student') body.classCode = (fd.get('classCode') || '').trim().toUpperCase();
+      if (role === 'teacher' || role === 'admin') body.setupCode = (fd.get('setupCode') || '').trim();
+      try {
+        await API.post('/api/auth/register', body);
+        await loadMe();
+        redirectByRole();
+      } catch (err) {
+        setError('registerError', err.message || 'Registration failed');
+      }
+    };
+
+    document.getElementById('logoutBtn').onclick = async () => {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      currentUser = null;
+      setHeader(null);
+      showPage('pageLanding');
+    };
+
+    // ─── Student: assigned prompts ─────────────────────────────────────
+    async function loadStudentPrompts() {
+      try {
+        const { prompts } = await API.get('/api/me/assigned-prompts');
+        const list = document.getElementById('studentPromptList');
+        const empty = document.getElementById('studentEmpty');
+        list.innerHTML = '';
+        if (!prompts || prompts.length === 0) {
+          show(empty, true);
+          return;
+        }
+        show(empty, false);
+        prompts.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'prompt-item';
+          div.innerHTML = `<div><div class="title">${escapeHtml(p.title)}</div><div class="meta">${p.essay_type.toUpperCase()}</div></div><a href="/grader?promptId=${p.id}" class="btn btn-primary">Open grader →</a>`;
+          list.appendChild(div);
+        });
+      } catch (_) {}
+    }
+
+    // ─── Teacher: classes ───────────────────────────────────────────────
+    async function loadTeacherClasses() {
+      try {
+        const { classes } = await API.get('/api/classes');
+        const grid = document.getElementById('teacherClassGrid');
+        grid.innerHTML = '';
+        (classes || []).forEach(c => {
+          const card = document.createElement('div');
+          card.className = 'class-card';
+          card.innerHTML = `
+            <h3>${escapeHtml(c.name)}</h3>
+            <div class="code">${escapeHtml(c.class_code)}</div>
+            <p class="assignments" id="ac-${c.id}">—</p>
+            <div class="actions">
+              <select class="assign-prompt-select" data-class-id="${c.id}" style="padding:6px 10px;border-radius:var(--radius);background:var(--navy);color:var(--cream);border:1px solid var(--border);font-size:.85rem;">
+                <option value="">Assign a prompt…</option>
+              </select>
+              <span id="assign-status-${c.id}" style="font-size:.8rem;color:var(--muted);"></span>
+            </div>
+          `;
+          grid.appendChild(card);
+          loadClassAssignments(c.id);
+          loadPromptOptionsForClass(c.id);
+          card.querySelector('.assign-prompt-select').onchange = async (e) => {
+            const promptId = parseInt(e.target.value, 10);
+            if (!promptId) return;
+            e.target.value = '';
+            const status = document.getElementById('assign-status-' + c.id);
+            status.textContent = 'Adding…';
+            try {
+              await API.post(`/api/classes/${c.id}/assignments`, { promptId });
+              loadClassAssignments(c.id);
+              status.textContent = 'Assigned.';
+              setTimeout(() => { status.textContent = ''; }, 2000);
+            } catch (err) {
+              status.textContent = err.message || 'Failed';
+            }
+          };
+        });
+      } catch (_) {}
+    }
+
+    async function loadClassAssignments(classId) {
+      try {
+        const { assignments } = await API.get(`/api/classes/${classId}/assignments`);
+        const el = document.getElementById(`ac-${classId}`);
+        if (el) el.textContent = (assignments && assignments.length) ? `${assignments.length} prompt(s) assigned` : 'No prompts assigned';
+      } catch (_) {}
+    }
+
+    async function loadPromptOptionsForClass(classId) {
+      let prompts = [];
+      try { const r = await API.get('/api/prompts'); prompts = r.prompts || []; } catch (_) {}
+      const sel = document.querySelector('.assign-prompt-select[data-class-id="' + classId + '"]');
+      if (!sel) return;
+      prompts.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.title + ' (' + p.essay_type + ')';
+        sel.appendChild(opt);
+      });
+    }
+
+    document.getElementById('btnCreateClass').onclick = () => {
+      document.getElementById('createClassForm').classList.remove('hidden');
+      document.getElementById('newClassName').value = '';
+    };
+    document.getElementById('btnCancelCreate').onclick = () => document.getElementById('createClassForm').classList.add('hidden');
+    document.getElementById('btnConfirmCreate').onclick = async () => {
+      const name = document.getElementById('newClassName').value.trim() || 'My Class';
+      try {
+        await API.post('/api/classes', { name });
+        document.getElementById('createClassForm').classList.add('hidden');
+        loadTeacherClasses();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    // ─── Admin: prompts, codes, teachers ────────────────────────────────
+    document.getElementById('btnAddPrompt').onclick = async () => {
+      const title = document.getElementById('newPromptTitle').value.trim();
+      const body = document.getElementById('newPromptBody').value.trim();
+      const essay_type = document.getElementById('newPromptType').value;
+      if (!title || !body) { alert('Title and prompt text required.'); return; }
+      try {
+        await API.post('/api/prompts', { title, body, essay_type });
+        document.getElementById('newPromptTitle').value = '';
+        document.getElementById('newPromptBody').value = '';
+        loadAdminPrompts();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    async function loadAdminPrompts() {
+      try {
+        const { prompts } = await API.get('/api/prompts');
+        const list = document.getElementById('adminPromptList');
+        list.innerHTML = '';
+        (prompts || []).forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'prompt-item';
+          div.innerHTML = `
+            <div><div class="title">${escapeHtml(p.title)}</div><div class="meta">ID ${p.id} · ${p.essay_type.toUpperCase()}</div></div>
+            <button type="button" class="btn btn-danger btn-sm btn-delete-prompt" data-id="${p.id}">Delete</button>
+          `;
+          list.appendChild(div);
+          div.querySelector('.btn-delete-prompt').onclick = () => { if (confirm('Delete this prompt?')) API.delete(`/api/prompts/${p.id}`).then(() => loadAdminPrompts()); };
+        });
+      } catch (_) {}
+    }
+
+    document.querySelectorAll('#pageAdmin .tab').forEach(t => {
+      t.onclick = () => {
+        document.querySelectorAll('#pageAdmin .tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('.admin-tab').forEach(x => x.classList.add('hidden'));
+        const tab = t.dataset.tab;
+        if (tab === 'prompts') document.getElementById('adminPrompts').classList.remove('hidden');
+        if (tab === 'codes') document.getElementById('adminCodes').classList.remove('hidden');
+        if (tab === 'teachers') document.getElementById('adminTeachers').classList.remove('hidden');
+      };
+    });
+
+    document.getElementById('btnGenerateCode').onclick = async () => {
+      try {
+        const { code } = await API.post('/api/teacher-codes', {});
+        document.getElementById('newCodeValue').textContent = code;
+        document.getElementById('newCodeDisplay').classList.remove('hidden');
+        loadAdminCodes();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    async function loadAdminCodes() {
+      try {
+        const { codes } = await API.get('/api/teacher-codes');
+        const tbody = document.getElementById('codesTableBody');
+        tbody.innerHTML = (codes || []).map(c => `<tr><td>${escapeHtml(c.code)}</td><td>${escapeHtml(c.created_at)}</td><td>${c.used_at ? 'Used' : '—'}</td></tr>`).join('');
+      } catch (_) {}
+    }
+
+    async function loadAdminTeachers() {
+      try {
+        const { teachers } = await API.get('/api/teachers');
+        const { classes } = await API.get('/api/classes');
+        const tbody = document.getElementById('teachersTableBody');
+        tbody.innerHTML = (teachers || []).map(t => {
+          const teacherClasses = (classes || []).filter(c => c.teacher_email === t.email);
+          const links = teacherClasses.map(c => `<a href="#" class="view-class" data-id="${c.id}">${escapeHtml(c.name)} (${c.class_code})</a>`).join(', ');
+          return `<tr><td>${escapeHtml(t.name)}</td><td>${escapeHtml(t.email)}</td><td>${t.class_count || 0}</td><td>${links || '—'}</td></tr>`;
+        }).join('');
+        tbody.querySelectorAll('.view-class').forEach(a => {
+          a.onclick = (e) => { e.preventDefault(); viewClassPage(a.dataset.id); };
+        });
+      } catch (_) {}
+    }
+
+    async function viewClassPage(id) {
+      try {
+        const c = await API.get('/api/classes/' + id);
+        const assignList = (c.assignmentPromptIds || []).join(', ');
+        const studentList = (c.students || []).map(s => s.name).join(', ') || 'None';
+        alert('Class: ' + c.name + '\nCode: ' + c.class_code + '\nAssigned prompt IDs: ' + assignList + '\nStudents: ' + studentList);
+      } catch (_) {
+        alert('Could not load class.');
+      }
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    // Init
+    (async () => {
+      const user = await loadMe();
+      if (user) redirectByRole();
+      else showPage('pageLanding');
+    })();
+  </script>
+</body>
+</html>
