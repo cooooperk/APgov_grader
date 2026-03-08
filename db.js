@@ -46,8 +46,14 @@ db.exec(`
     body TEXT NOT NULL,
     essay_type TEXT NOT NULL CHECK(essay_type IN ('frq','arg','dbq')),
     rubric_json TEXT NOT NULL,
+    parts_json TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+`);
+try {
+  db.exec(`ALTER TABLE prompts ADD COLUMN parts_json TEXT`);
+} catch (_) {}
+db.exec(`
 
   CREATE TABLE IF NOT EXISTS assignments (
     class_id INTEGER NOT NULL REFERENCES classes(id),
@@ -82,10 +88,10 @@ function generateCode() {
 
 const defaultRubric = JSON.stringify({
   criteria: [
-    { id: 'thesis', name: 'Thesis / Claim', maxPoints: 1, description: 'Responds with a defensible thesis that establishes a line of reasoning.' },
-    { id: 'context', name: 'Contextualization', maxPoints: 1, description: 'Describes broader context and connects it to the argument.' },
-    { id: 'evidence', name: 'Evidence', maxPoints: 2, description: 'Uses specific evidence; second point for supporting reasoning.' },
-    { id: 'analysis', name: 'Analysis & Reasoning', maxPoints: 2, description: 'Uses historical reasoning; complexity point for sophisticated understanding.' }
+    { id: 'thesis', name: 'Thesis / Claim', maxPoints: 1, description: 'Responds with a defensible thesis that establishes a line of reasoning.', partIndex: null },
+    { id: 'context', name: 'Contextualization', maxPoints: 1, description: 'Describes broader context and connects it to the argument.', partIndex: null },
+    { id: 'evidence', name: 'Evidence', maxPoints: 2, description: 'Uses specific evidence; second point for supporting reasoning.', partIndex: null },
+    { id: 'analysis', name: 'Analysis & Reasoning', maxPoints: 2, description: 'Uses historical reasoning; complexity point for sophisticated understanding.', partIndex: null }
   ],
   totalMax: 6
 });
