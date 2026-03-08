@@ -1,5 +1,5 @@
 const express = require('express');
-const session = require('express-session');
+const cookieSession = require('cookie-session');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const https = require('https');
@@ -14,11 +14,13 @@ const CLASS_CODE_LENGTH = 6;
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'ap-gov-grader-secret-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 }
+// Cookie-based session: no server-side store, safe for production and multi-instance
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'ap-gov-grader-secret-change-in-production'],
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  sameSite: 'lax'
 }));
 
 // ─── Auth middleware ─────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy();
+  req.session = null;
   res.json({ ok: true });
 });
 
@@ -108,36 +110,52 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // ─── Prompts (admin: CRUD; teacher/student: list) ────────────────────────
+function promptToJson(p) {
+  const rubric = JSON.parse(p.rubric_json || '{}');
+  let parts = null;
+  if (p.parts_json) try { parts = JSON.parse(p.parts_json); } catch (_) {}
+  if (!parts || !Array.isArray(parts) || parts.length === 0) parts = [p.body];
+  return { ...p, rubric, parts };
+}
+
 app.get('/api/prompts', requireAuth, (req, res) => {
-  const rows = db.prepare('SELECT id, title, body, essay_type, rubric_json, created_at FROM prompts ORDER BY essay_type, title').all();
-  res.json({ prompts: rows.map(p => ({ ...p, rubric: JSON.parse(p.rubric_json || '{}') })) });
+  const rows = db.prepare('SELECT id, title, body, essay_type, rubric_json, parts_json, created_at FROM prompts ORDER BY essay_type, title').all();
+  res.json({ prompts: rows.map(p => promptToJson(p)) });
 });
 
 app.get('/api/prompts/:id', requireAuth, (req, res) => {
-  const p = db.prepare('SELECT id, title, body, essay_type, rubric_json FROM prompts WHERE id = ?').get(req.params.id);
+  const p = db.prepare('SELECT id, title, body, essay_type, rubric_json, parts_json FROM prompts WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Prompt not found' });
-  res.json({ ...p, rubric: JSON.parse(p.rubric_json || '{}') });
+  res.json(promptToJson(p));
 });
 
 app.post('/api/prompts', requireRole('admin'), (req, res) => {
-  const { title, body, essay_type, rubric } = req.body || {};
-  if (!title || !body || !essay_type) return res.status(400).json({ error: 'Missing title, body, or essay_type' });
-  const rubricJson = rubric ? JSON.stringify(rubric) : require('./db').defaultRubric;
-  const id = db.prepare('INSERT INTO prompts (title, body, essay_type, rubric_json) VALUES (?, ?, ?, ?)')
-    .run(title.trim(), body.trim(), essay_type, rubricJson);
-  res.status(201).json({ id: id.lastInsertRowid, title: title.trim(), body: body.trim(), essay_type, rubric: typeof rubric === 'object' ? rubric : JSON.parse(rubricJson) });
+  const { title, body, essay_type, rubric, parts } = req.body || {};
+  const partList = Array.isArray(parts) && parts.length >= 1 ? parts.slice(0, 3).map(s => String(s).trim()).filter(Boolean) : null;
+  const bodyText = partList && partList.length > 0 ? partList[0] : (body && String(body).trim());
+  if (!title || !bodyText || !essay_type) return res.status(400).json({ error: 'Missing title, body (or parts), or essay_type' });
+  const rubricJson = rubric && rubric.criteria && rubric.criteria.length > 0 ? JSON.stringify(rubric) : require('./db').defaultRubric;
+  const partsJson = partList && partList.length > 0 ? JSON.stringify(partList) : null;
+  const id = db.prepare('INSERT INTO prompts (title, body, essay_type, rubric_json, parts_json) VALUES (?, ?, ?, ?, ?)')
+    .run(title.trim(), bodyText, essay_type, rubricJson, partsJson);
+  const p = db.prepare('SELECT id, title, body, essay_type, rubric_json, parts_json FROM prompts WHERE id = ?').get(id.lastInsertRowid);
+  res.status(201).json(promptToJson(p));
 });
 
 app.put('/api/prompts/:id', requireRole('admin'), (req, res) => {
-  const { title, body, essay_type, rubric } = req.body || {};
+  const { title, body, essay_type, rubric, parts } = req.body || {};
   const existing = db.prepare('SELECT id FROM prompts WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Prompt not found' });
   if (title !== undefined) db.prepare('UPDATE prompts SET title = ? WHERE id = ?').run(title.trim(), req.params.id);
   if (body !== undefined) db.prepare('UPDATE prompts SET body = ? WHERE id = ?').run(body.trim(), req.params.id);
   if (essay_type !== undefined) db.prepare('UPDATE prompts SET essay_type = ? WHERE id = ?').run(essay_type, req.params.id);
   if (rubric !== undefined) db.prepare('UPDATE prompts SET rubric_json = ? WHERE id = ?').run(JSON.stringify(rubric), req.params.id);
-  const p = db.prepare('SELECT id, title, body, essay_type, rubric_json FROM prompts WHERE id = ?').get(req.params.id);
-  res.json({ ...p, rubric: JSON.parse(p.rubric_json || '{}') });
+  if (parts !== undefined) {
+    const partList = Array.isArray(parts) && parts.length >= 1 ? parts.slice(0, 3).map(s => String(s).trim()).filter(Boolean) : null;
+    db.prepare('UPDATE prompts SET parts_json = ? WHERE id = ?').run(partList ? JSON.stringify(partList) : null, req.params.id);
+  }
+  const p = db.prepare('SELECT id, title, body, essay_type, rubric_json, parts_json FROM prompts WHERE id = ?').get(req.params.id);
+  res.json(promptToJson(p));
 });
 
 app.delete('/api/prompts/:id', requireRole('admin'), (req, res) => {
