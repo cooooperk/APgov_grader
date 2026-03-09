@@ -313,6 +313,58 @@ app.post('/api/chat', (req, res) => {
   proxyReq.end();
 });
 
+// ─── /api/chat-server — proxy using server's OLLAMA_API_KEY env var ─────────
+// Called by Google Apps Script so the Ollama key never has to leave Render.
+// Accepts: { model, messages, stream? }  — no apiKey needed in the body.
+app.post('/api/chat-server', (req, res) => {
+  const apiKey = process.env.OLLAMA_API_KEY || '';
+  if (!apiKey) {
+    return res.status(500).json({ error: 'OLLAMA_API_KEY not set on server.' });
+  }
+
+  const { model, messages, stream } = req.body || {};
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Missing messages array.' });
+  }
+
+  const body = JSON.stringify({
+    model:    model || 'gpt-oss:20b-cloud',
+    stream:   stream === true,
+    messages: messages,
+  });
+
+  const opts = {
+    hostname: 'ollama.com',
+    port:     443,
+    path:     '/api/chat',
+    method:   'POST',
+    headers: {
+      'Content-Type':   'application/json',
+      'Authorization':  'Bearer ' + apiKey,
+      'Content-Length': Buffer.byteLength(body, 'utf8'),
+    },
+  };
+
+  // CORS so Apps Script can reach this
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const proxyReq = https.request(opts, (proxyRes) => {
+    res.status(proxyRes.statusCode);
+    Object.keys(proxyRes.headers).forEach(k => res.setHeader(k, proxyRes.headers[k]));
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (e) => res.status(502).json({ error: 'Proxy error: ' + e.message }));
+  proxyReq.write(body);
+  proxyReq.end();
+});
+
+app.options('/api/chat-server', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(204);
+});
+
 // ─── Static files ───────────────────────────────────────────────────────
 
 // ─── /grade endpoint — add this block to server.js ───────────────────────
