@@ -314,6 +314,119 @@ app.post('/api/chat', (req, res) => {
 });
 
 // ─── Static files ───────────────────────────────────────────────────────
+
+// ─── /grade endpoint — add this block to server.js ───────────────────────
+// Place it just BEFORE the "Static files" section (before app.use(express.static...))
+//
+// Auth: The Ollama key is read from OLLAMA_API_KEY env var (set on Render dashboard).
+// Google Apps Script calls this with a POST containing { essay, prompt, model?,
+// studentName?, essayType? }. No user session required — Apps Script is the client.
+
+const GRADING_SYSTEM_PROMPT = `You are an AP U.S. Government and Politics expert grader. Grade the student essay using the College Board 6-point rubric. Return ONLY valid JSON, no other text or markdown. Use this exact schema:
+{
+  "thesis":   { "score": 0 or 1,   "feedback": "brief feedback" },
+  "context":  { "score": 0 or 1,   "feedback": "brief feedback" },
+  "evidence": { "score": 0, 1, or 2, "feedback": "brief feedback" },
+  "analysis": { "score": 0, 1, or 2, "feedback": "brief feedback" },
+  "overall":  "2-4 sentence overall feedback"
+}
+Rules: thesis and context are 0-1; evidence and analysis are 0-2. Total out of 6. Be fair and specific. Output nothing but the JSON object.`;
+
+app.post('/grade', async (req, res) => {
+  const { essay, prompt: essayPrompt, model, studentName, essayType } = req.body || {};
+
+  if (!essay || typeof essay !== 'string' || essay.trim().length < 30) {
+    return res.status(400).json({ error: 'Essay text is too short or missing.' });
+  }
+
+  const apiKey = process.env.OLLAMA_API_KEY || req.headers['x-api-key'] || '';
+  if (!apiKey) {
+    return res.status(401).json({ error: 'No Ollama API key configured. Set OLLAMA_API_KEY on Render.' });
+  }
+
+  const selectedModel = model || 'gpt-oss:20b-cloud';
+  const userContent = essayPrompt
+    ? `Essay prompt:\n${essayPrompt.trim()}\n\nStudent essay:\n${essay.trim()}`
+    : `Student essay:\n${essay.trim()}`;
+
+  const body = JSON.stringify({
+    model: selectedModel,
+    stream: false,
+    messages: [
+      { role: 'system', content: GRADING_SYSTEM_PROMPT },
+      { role: 'user',   content: userContent },
+    ],
+  });
+
+  const opts = {
+    hostname: 'ollama.com',
+    port: 443,
+    path: '/api/chat',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+      'Content-Length': Buffer.byteLength(body, 'utf8'),
+    },
+  };
+
+  try {
+    const ollamaData = await new Promise((resolve, reject) => {
+      const proxyReq = https.request(opts, (proxyRes) => {
+        let data = '';
+        proxyRes.on('data', chunk => data += chunk);
+        proxyRes.on('end', () => {
+          if (proxyRes.statusCode >= 400) {
+            return reject({ status: proxyRes.statusCode, body: data });
+          }
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject({ status: 500, body: 'Invalid JSON from Ollama: ' + data }); }
+        });
+      });
+      proxyReq.on('error', e => reject({ status: 502, body: e.message }));
+      proxyReq.write(body);
+      proxyReq.end();
+    });
+
+    const rawContent = ollamaData?.message?.content || '';
+    let gradeData;
+    try {
+      const cleaned = rawContent.replace(/```json|```/g, '').trim();
+      gradeData = JSON.parse(cleaned);
+    } catch (_) {
+      return res.status(500).json({ error: 'Model returned non-JSON.', raw: rawContent });
+    }
+
+    // Clamp scores to valid ranges
+    const maxPts = { thesis: 1, context: 1, evidence: 2, analysis: 2 };
+    let total = 0;
+    for (const key of ['thesis', 'context', 'evidence', 'analysis']) {
+      if (!gradeData[key]) gradeData[key] = { score: 0, feedback: 'No feedback.' };
+      gradeData[key].score = Math.max(0, Math.min(maxPts[key], Math.round(Number(gradeData[key].score))));
+      total += gradeData[key].score;
+    }
+    gradeData.total = total;
+    if (studentName) gradeData.studentName = studentName;
+    if (essayType)   gradeData.essayType   = essayType;
+
+    // CORS header so Apps Script can reach this endpoint
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json(gradeData);
+
+  } catch (err) {
+    console.error('/grade error:', err);
+    return res.status(err.status || 500).json({ error: err.body || String(err) });
+  }
+});
+
+// Also handle OPTIONS pre-flight for /grade
+app.options('/grade', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  res.sendStatus(204);
+});
+
 const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
